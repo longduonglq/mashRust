@@ -1,3 +1,5 @@
 mod note;
-mod stream;
 mod part;
+mod types;
+mod interval;
+mod chord;
