@@ -16,44 +16,32 @@ pub struct XmlTag {
     pub namespace: Namespace,
     pub text: Option<String>, // content between tag pair
 
-    pub parent_tag: Option< Weak< XmlTag>>,
-    // Uses Rc here bc an XmlTag will be referred to by its child and user
+    // Uses Rc here bc an XmlTag might be referred to by user
     pub child_tags: Vec< Rc< XmlTag>>
 }
 
 impl XmlTag {
-    /// This method returns a unique pointer to the parent XmlTag from
-    /// a buffer (usually file)
-    pub fn from_buffer(buffer: impl Read) -> Rc<Self>
+    pub fn from_buffer(buffer: impl Read) -> Rc< Self>
     {
         let event_reader = EventReader::new(buffer);
         Self::from_event_reader(event_reader)
     }
 
-    /// This method returns a unique pointer to the parent XmlTag from
-    /// and XmlReader (pull reader)
-    pub fn from_event_reader(reader: EventReader<impl Read>) -> Rc<Self>
+    pub fn from_event_reader(reader: EventReader<impl Read>) -> Rc< Self>
     {
-        /// Each StartElement event is wrapped around a Box then put onto a stack.
-        ///
-        /// When encounter a StopElement event, the stack is popped then a XmlTag
-        /// will be completed and a Box to it will be added to its parent's child_tags.
-        let mut stack: Vec< RefCell< XmlTag>> = Vec::with_capacity(15);
+        let mut stack: Vec< XmlTag> = Vec::with_capacity(15);
         for xml_event in reader {
             match xml_event {
                 Ok(XmlEvent::StartElement {name, attributes, namespace})
                 => {
                     stack.push(
-                        RefCell::new(
-                                XmlTag {
-                                name,
-                                attributes,
-                                namespace,
-                                text: None,
-                                parent_tag: None,
-                                child_tags: Vec::with_capacity(10)
-                            }
-                        )
+                        XmlTag {
+                            name,
+                            attributes,
+                            namespace,
+                            text: None,
+                            child_tags: Vec::with_capacity(10)
+                        }
                     );
                 }
 
@@ -61,22 +49,22 @@ impl XmlTag {
                 => {
                     // pop the begin_tag that pairs with the current EndElement event
                     let begin_tag = stack.pop().unwrap();
-                    assert_eq!(begin_tag.borrow().name, name);
+                    assert_eq!(begin_tag.name, name);
                     // if stack is not empty then add child XmlTag, which is begin_tag
                     // if stack is empty, parse is complete
                     if let Some(parent) = stack.last_mut() {
-                        parent.borrow_mut().child_tags.push(
-                            Rc::new(begin_tag.into_inner())
+                        parent.child_tags.push(
+                            Rc::new(begin_tag)
                         );
                     } else {
-                        return Rc::new(begin_tag.into_inner())
+                        return Rc::new(begin_tag)
                     }
                 }
 
                 Ok(XmlEvent::Characters (d))
                 => {
                     let last = stack.last_mut().unwrap();
-                    last.borrow_mut().text = Some(d);
+                    last.text = Some(d);
                 }
 
                 _ => {}
@@ -85,12 +73,12 @@ impl XmlTag {
         unreachable!()
     }
 
-    pub fn search_tag<'a>(tag_name: &String, xml_tag: &'a XmlTag) -> Result<&'a XmlTag, ()> {
+    pub fn search_tag(tag_name: &String, xml_tag: Rc<XmlTag>) -> Result<Rc<XmlTag>, ()> {
         if xml_tag.name.local_name.as_str() == tag_name {
-            Result::Ok(&xml_tag)
+            Result::Ok(Rc::clone(&xml_tag))
         } else {
             for child_tag in xml_tag.child_tags.iter() {
-                let search_res = Self::search_tag(&tag_name, child_tag);
+                let search_res = Self::search_tag(&tag_name, Rc::clone(child_tag));
                 if search_res.is_ok() {
                     return search_res;
                 }
@@ -99,7 +87,7 @@ impl XmlTag {
         }
     }
 
-    pub fn print_debug(xml_tag: &Rc<Self>, depth: usize) {
+    pub fn print_debug(xml_tag: Rc<Self>, depth: usize) {
         let indent = |size: usize| -> String {
             const INDENT: &'static str = "    ";
             (0..size).map(|_| INDENT)
@@ -108,18 +96,20 @@ impl XmlTag {
         print!("{}+{}",
                  indent(depth), xml_tag.name,
         );
+        // print pointer count
+        print!("  PtrCnt({},{})", Rc::strong_count(&xml_tag), Rc::weak_count(&xml_tag));
         // print attributes if present
         for attr in &xml_tag.attributes {
             print!("  {}={}", attr.name, attr.value)
         }
         println!();
-        // print attributes if present
+        // print tag's text content
         if xml_tag.text.is_some() {
             println!("{}{}", indent(depth + 1), xml_tag.text.as_ref().unwrap())
         }
         // print all child tags
         for child_tag in &xml_tag.child_tags {
-            Self::print_debug(&child_tag, depth + 1);
+            Self::print_debug(Rc::clone(child_tag), depth + 1);
         }
         println!("{}-{}", indent(depth), xml_tag.name);
     }
@@ -185,7 +175,7 @@ mod tests {
     }
 
     #[test]
-    fn test_recurse(){
+    fn test_print(){
         let xml_raw = xml_info();
         let parser = EventReader::new(xml_raw);
         let mut depth = 0;
@@ -211,25 +201,33 @@ mod tests {
     #[test]
     fn test_from() {
         let xml_tree = XmlTag::from_buffer(xml_info());
-        XmlTag::print_debug(&xml_tree, 0);
+        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
         println!("{}", XmlTag::repr_size(&xml_tree));
     }
 
     #[test]
     fn test_search() {
         let xml_tree = XmlTag::from_buffer(xml_info());
-        //XmlTag::print_debug(&xml_tree, 0);
+        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
         println!("{}", XmlTag::repr_size(&xml_tree));
-        let res = XmlTag::search_tag(&"system-layout".to_string(),
-                                                xml_tree.as_ref());
-        //XmlTag::print_debug(, 0);
-        println!("{:?}", res.unwrap().name)
+        let res = XmlTag::search_tag(
+            &"staff-layout".to_string(), Rc::clone(&xml_tree));
+
+        XmlTag::print_debug(res.unwrap(), 0);
+    }
+
+    #[test]
+    fn test_pointer() {
+        let xml_tree = XmlTag::from_buffer(xml_info());
+        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
+        let child = Rc::clone(&xml_tree.child_tags[1]);
+        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
     }
 
     #[test]
     fn test_file() {
         let xml_file = File::open("src/msc/parser/test/example6.musicxml");
         let xml_tree = XmlTag::from_buffer(xml_file.unwrap());
-        XmlTag::print_debug(&xml_tree, 0);
+        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
     }
 }

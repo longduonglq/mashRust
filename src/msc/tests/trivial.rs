@@ -1,6 +1,7 @@
 mod tests {
     use std::slice::Iter;
     use std::rc::Rc;
+    use std::cell::RefCell;
 
     fn recursive(mut iter: Iter<i32>) {
         let val = iter.next();
@@ -19,7 +20,9 @@ mod tests {
         recursive(v.iter());
         println!("end");
 
-        let rc = Rc::new(v);
+        let refc = RefCell::new(v);
+        println!("{:?}", refc.borrow());
+        let rc = Rc::new(refc.into_inner());
         println!("{:?}", rc);
     }
 }
