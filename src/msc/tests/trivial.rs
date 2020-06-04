@@ -25,4 +25,16 @@ mod tests {
         let rc = Rc::new(refc.into_inner());
         println!("{:?}", rc);
     }
+    #[derive(Debug)]
+    enum note {
+        Note(i32),
+        Chord (Vec<note>)
+    }
+    #[test]
+    fn test2() {
+        let nt = note::Note(3);
+        let nt2 = note::Note(2);
+        let ch = note::Chord(vec![nt, nt2]);
+        println!("{:?}", ch);
+    }
 }

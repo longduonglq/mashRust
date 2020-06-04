@@ -1,14 +1,14 @@
 use std::hash::Hash;
 use std::collections::HashSet;
 use std::rc::Rc;
-use crate::msc::duration::Duration;
-use crate::msc::general_note::note_attr::TimeModification;
-use crate::msc::parser::xml_tag::XmlTag;
+use crate::parser::xml_tag::XmlTag;
+use std::borrow::BorrowMut;
+use std::ops::Deref;
 
 pub mod note_attr {
     use std::collections::HashMap;
 
-    #[derive(Debug, Eq, PartialEq, Hash)]
+    #[derive(Debug, Eq, PartialEq, Hash, Clone)]
     pub enum Accidental {
         Sharp,
         DSharp,
@@ -18,7 +18,7 @@ pub mod note_attr {
         None
     }
 
-    #[derive(Debug, Eq, PartialEq, Hash)]
+    #[derive(Debug, Eq, PartialEq, Hash, Clone)]
     pub enum Step {
         A,
         B,
@@ -29,22 +29,30 @@ pub mod note_attr {
         G
     }
 
-    #[derive(Debug, Eq, PartialEq, Hash)]
+    #[derive(Debug, Eq, PartialEq, Hash, Clone)]
+    pub struct Pitch {
+        pub step: Step,
+        pub accidental: Accidental,
+        pub octave: Octave
+    }
+
+    #[derive(Debug, Eq, PartialEq, Hash, Clone)]
     pub enum Tie {
         start,
         stop
     }
 
-    #[derive(Debug, Eq, PartialEq, Hash)]
-    pub struct TimeModification {
-        actual: u8,
-        normal: u8,
-        normal_type: LengthType,
-    }
+    // #[derive(Debug, Eq, PartialEq, Hash, Clone)]
+    // pub struct TimeModification {
+    //     actual: u8,
+    //     normal: u8,
+    //     normal_type: LengthType,
+    // }
+    pub type Duration = fraction::GenericFraction<u16>;
 
     pub type LengthType = String;
     lazy_static! {
-        pub static ref LengthTypeMap: HashMap<&'static str, u16> = {
+        pub static ref LENGTH_TYPE_TABL: HashMap<&'static str, u16> = {
             let mut map = HashMap::new();
             map.insert("whole", 2u16.pow(0));
             map.insert("half", 2u16.pow(1));
@@ -63,62 +71,68 @@ pub mod note_attr {
     pub type Offset = fraction::GenericFraction<u16>;
     pub type Octave = u8;
 
-    #[derive(Debug, Eq, PartialEq, Hash)]
+    #[derive(Debug, Eq, PartialEq, Hash, Clone)]
     pub enum Syllabic {single, begin, end, middle}
 
-    #[derive(Debug, Eq, PartialEq, Hash)]
+    #[derive(Debug, Eq, PartialEq, Hash, Clone)]
     pub struct Lyric {
         syllabic: Syllabic,
         text: String,
         number: u8, // used to specify which line the lyric is on
     }
 }
+/// Represents a generalized note that could be an actual note, rest, or chord
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub enum GnoteVariants {
+    Note, Rest, Chord
+}
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub struct Gnote {
+    pub variant: GnoteVariants,
+    // pitch information
+    pub pitch: Vec< note_attr::Pitch>,
 
-/// Represents an actual note
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub struct note {
-    step: note_attr::Step,
-    accidental: note_attr::Accidental,
-    octave: note_attr::Octave,
-    duration: Duration,
+    // duration information
+    pub duration: note_attr::Duration,
     length_type: note_attr::LengthType,
+    dot: i8, // the number of dots in this note
+    tie: Option< note_attr::Tie>,
 
-    tie: Option<note_attr::Tie>,
-    time_mod: Option<note_attr::TimeModification>,
-    lyrics: Vec<note_attr::Lyric>,
+    pub lyrics: Vec< note_attr::Lyric>,
+
+    // indicate position of self in a stream object.
+    pub offset: Option< note_attr::Offset>
 }
 
+impl Gnote  {
+    fn note_from_xml (xml_note: &XmlTag) -> Self {
+        unimplemented!()
+    }
 
-/// Simple Rest
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub struct rest {
-    duration: Duration,
+
+    fn split (&mut self, duration: note_attr::Duration) -> (Gnote, Gnote) {
+        unimplemented!()
+    }
 }
 
-
-/// Represents a chord.
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub struct chord {
-    notes: Vec<note>,
-    duration: Duration,
-}
-
-/// A general note object that gets stored in Part object
-#[derive(Debug, Eq, PartialEq, Hash)]
-pub enum GenNote {
-    Note(note),
-    Rest(rest),
-    Chord(chord),
-}
 
 #[cfg(test)]
 mod tests{
     use super::*;
     use std::borrow::BorrowMut;
+    use crate::msc::general_note::note_attr::*;
+
+    #[test]
+    fn test_note_split() {
+        // let nt = Gnote {
+        //     variant: GnoteVariants::Note,
+        //
+        // }
+    }
 
     #[test]
     fn test_note(){
-
+        println!("{:?}", LENGTH_TYPE_TABL["eighth"])
     }
 
     #[test]

@@ -1,13 +1,17 @@
-use xml::{reader, EventReader};
+use xml::{reader, EventReader, EventWriter, EmitterConfig};
 use std::rc::{Weak, Rc};
-use std::io::Read;
+use std::io::{Read, Write};
 use xml::reader::XmlEvent;
 use xml::writer::events::XmlEvent::StartDocument;
-use xml::name::OwnedName;
+use xml::name::{OwnedName};
 use xml::attribute::OwnedAttribute;
 use xml::namespace::Namespace;
 use std::cell::{RefCell, Ref};
 use std::mem::size_of_val;
+use std::path::Path;
+use std::fs::File;
+use std::collections::HashMap;
+use std::borrow::{Cow, BorrowMut};
 
 #[derive(Debug)]
 pub struct XmlTag {
@@ -21,6 +25,12 @@ pub struct XmlTag {
 }
 
 impl XmlTag {
+    pub fn from_file<T: AsRef<Path>> (path: T) -> Rc< Self>
+    {
+        let xml_file = File::open(path);
+        XmlTag::from_buffer(xml_file.unwrap())
+    }
+
     pub fn from_buffer(buffer: impl Read) -> Rc< Self>
     {
         let event_reader = EventReader::new(buffer);
@@ -29,6 +39,10 @@ impl XmlTag {
 
     pub fn from_event_reader(reader: EventReader<impl Read>) -> Rc< Self>
     {
+        // Uses stack instead of recursion. When encounter a beginTag, push new XmlTag
+        // onto the stack. If an endTag event encountered, pop the beginTag from stack
+        // then wrap it around an Rc::new() add it to the .child_tags field of
+        // the parent tag.
         let mut stack: Vec< XmlTag> = Vec::with_capacity(15);
         for xml_event in reader {
             match xml_event {
@@ -53,9 +67,7 @@ impl XmlTag {
                     // if stack is not empty then add child XmlTag, which is begin_tag
                     // if stack is empty, parse is complete
                     if let Some(parent) = stack.last_mut() {
-                        parent.child_tags.push(
-                            Rc::new(begin_tag)
-                        );
+                        parent.child_tags.push(Rc::new(begin_tag) );
                     } else {
                         return Rc::new(begin_tag)
                     }
@@ -73,26 +85,51 @@ impl XmlTag {
         unreachable!()
     }
 
-    pub fn search_tag(tag_name: &String, xml_tag: Rc<XmlTag>) -> Result<Rc<XmlTag>, ()> {
-        if xml_tag.name.local_name.as_str() == tag_name {
-            Result::Ok(Rc::clone(&xml_tag))
+    /// Recursively search for a tag with name tag_name
+    /// Returns a Vec of Rc to XmlTags found.
+    pub fn search_tag<T: AsRef<str>>(tag_name: T, xml_tag: &Rc<XmlTag>)
+        -> Vec< Rc< XmlTag>>
+    {
+        if xml_tag.name.local_name.as_str() == tag_name.as_ref() {
+            vec![Rc::clone(xml_tag)]
         } else {
+            let mut results = Vec::with_capacity(15);
             for child_tag in xml_tag.child_tags.iter() {
-                let search_res = Self::search_tag(&tag_name, Rc::clone(child_tag));
-                if search_res.is_ok() {
-                    return search_res;
+                let mut search_res = Self::search_tag(tag_name.as_ref(), &child_tag);
+                if !search_res.is_empty() {
+                    results.append(&mut search_res);
                 }
             }
-            Result::Err(())
+            return results;
         }
     }
 
-    pub fn print_debug(xml_tag: Rc<Self>, depth: usize) {
+    /// Create a HashMap from tag_name to tag_content.
+    pub fn extract_tags<T: AsRef<str>>(tag_names: Vec<T>, xml_tag: &Rc<XmlTag>)
+        -> (HashMap< String, String>, )
+    {
+        unimplemented!()
+    }
+
+    pub fn write_to_event_writer<W>(xml_tag: &XmlTag, mut writer: &mut W)
+    where W: Write
+    {
+        unimplemented!()
+    }
+
+    pub fn write_to_buffer<B: Write>(&self, mut buffer: &mut B) {
+        let event_writer = EmitterConfig::new()
+            .perform_indent(true)
+            .create_writer(&mut buffer);
+    }
+
+    pub fn print_debug_tag(xml_tag: &Rc<Self>, depth: usize) {
         let indent = |size: usize| -> String {
             const INDENT: &'static str = "    ";
             (0..size).map(|_| INDENT)
                 .fold(String::with_capacity(size * INDENT.len()), |r, s| r + s)
         };
+        // print tag with indent
         print!("{}+{}",
                  indent(depth), xml_tag.name,
         );
@@ -105,13 +142,36 @@ impl XmlTag {
         println!();
         // print tag's text content
         if xml_tag.text.is_some() {
-            println!("{}{}", indent(depth + 1), xml_tag.text.as_ref().unwrap())
+            println!("{}<{}>", indent(depth + 1), xml_tag.text.as_ref().unwrap())
         }
         // print all child tags
         for child_tag in &xml_tag.child_tags {
-            Self::print_debug(Rc::clone(child_tag), depth + 1);
+            Self::print_debug_tag(child_tag, depth + 1);
         }
         println!("{}-{}", indent(depth), xml_tag.name);
+    }
+
+    pub fn print_debug(&self) {
+        println!("+{}", self.name);
+        // print attributes if present
+        for attr in &self.attributes {
+            print!("  {}={}", attr.name, attr.value)
+        }
+        // print tag's text content
+        if self.text.is_some() {
+            println!("    <{}>", self.text.as_ref().unwrap())
+        }
+        // print all child tags
+        for child_tag in &self.child_tags {
+            Self::print_debug_tag(child_tag, 1);
+        }
+        println!("-{}", self.name);
+    }
+
+    pub fn print_debug_tags(tags: Vec< Rc< XmlTag>>) {
+        for tag in &tags {
+            Self::print_debug_tag(tag, 0);
+        }
     }
 
     pub fn repr_size(xml_tag: &Rc<Self>) -> usize {
@@ -130,6 +190,7 @@ mod tests {
     use std::mem::{size_of, size_of_val};
     use std::fs::File;
     use std::borrow::{Borrow, BorrowMut};
+    use std::hint::unreachable_unchecked;
 
     fn indent (size: usize) -> String {
         const INDENT: &'static str = "    ";
@@ -201,33 +262,46 @@ mod tests {
     #[test]
     fn test_from() {
         let xml_tree = XmlTag::from_buffer(xml_info());
-        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
+        XmlTag::print_debug_tag(&xml_tree, 0);
         println!("{}", XmlTag::repr_size(&xml_tree));
+        xml_tree.print_debug();
     }
 
     #[test]
     fn test_search() {
         let xml_tree = XmlTag::from_buffer(xml_info());
-        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
+        XmlTag::print_debug_tag(&xml_tree, 0);
         println!("{}", XmlTag::repr_size(&xml_tree));
         let res = XmlTag::search_tag(
-            &"staff-layout".to_string(), Rc::clone(&xml_tree));
+            "supports", &xml_tree);
+        for x in res {
+            XmlTag::print_debug_tag(&x, 0);
+        }
+    }
 
-        XmlTag::print_debug(res.unwrap(), 0);
+    #[test]
+    fn test_search2 () {
+        let xml_tree = XmlTag::from_file("src/parser/test/example6.musicxml");
+        //XmlTag::print_debug(&xml_tree, 0);
+        let res = XmlTag::search_tag("supports", &xml_tree);
+        if !res.is_empty() {
+            XmlTag::print_debug_tags(res);
+        }
     }
 
     #[test]
     fn test_pointer() {
         let xml_tree = XmlTag::from_buffer(xml_info());
-        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
-        let child = Rc::clone(&xml_tree.child_tags[1]);
-        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
+        XmlTag::print_debug_tag(&xml_tree, 0);
+        let child = Rc::clone(&xml_tree.child_tags[0]);
+        std::mem::drop(xml_tree);
+        XmlTag::print_debug_tag(&child, 0);
     }
 
     #[test]
     fn test_file() {
-        let xml_file = File::open("src/msc/parser/test/example6.musicxml");
+        let xml_file = File::open("src/parser/test/example6.musicxml");
         let xml_tree = XmlTag::from_buffer(xml_file.unwrap());
-        XmlTag::print_debug(Rc::clone(&xml_tree), 0);
+        XmlTag::print_debug_tag(&xml_tree, 0);
     }
 }

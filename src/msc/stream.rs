@@ -1,9 +1,9 @@
-use crate::msc::duration::Duration;
 use super::part::Part;
-use crate::msc::parser::xml_tag::XmlTag;
+use crate::parser::xml_tag::XmlTag;
+use crate::msc::general_note::note_attr;
 
 pub struct Stream {
-    duration: Duration,
+    duration: note_attr::Duration,
     parts: Vec< Part>
 }
 
@@ -27,7 +27,7 @@ mod tests {
     fn test() {
         let xml_file = File::open("src/msc/parser/test/example6.musicxml");
         let xml_tree = XmlTag::from_buffer(xml_file.unwrap());
-        //XmlTag::print_debug(&xml_tree, 0);
+        XmlTag::print_debug_tag(&xml_tree, 0);
         let f = Stream::from_xml_tag(&xml_tree);
     }
 }

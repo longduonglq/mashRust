@@ -9,7 +9,5 @@ mod interval;
 mod measure;
 mod key_sig;
 mod stream;
-mod duration;
 
-mod parser;
 mod tests;
