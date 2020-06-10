@@ -109,7 +109,6 @@ impl Gnote  {
         unimplemented!()
     }
 
-
     fn split (&mut self, duration: note_attr::Duration) -> (Gnote, Gnote) {
         unimplemented!()
     }
@@ -120,7 +119,7 @@ impl Gnote  {
 mod tests{
     use super::*;
     use std::borrow::BorrowMut;
-    use crate::msc::general_note::note_attr::*;
+    use crate::msc::gnote::note_attr::*;
 
     #[test]
     fn test_note_split() {

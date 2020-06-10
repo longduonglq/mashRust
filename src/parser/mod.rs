@@ -4,4 +4,5 @@
 #![allow(non_camel_case_types)]
 
 pub mod xml_tag;
-pub mod score_parser;
+pub mod xml_io;
+pub mod xml_builder;

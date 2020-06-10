@@ -3,11 +3,11 @@
 #![allow(unused_variables)]
 #![allow(non_camel_case_types)]
 
-mod general_note;
+mod gnote;
 mod part;
 mod interval;
 mod measure;
-mod key_sig;
 mod stream;
+mod attributes;
 
 mod tests;

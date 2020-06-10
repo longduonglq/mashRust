@@ -1,41 +1,39 @@
 use std::rc::Rc;
 use std::borrow::Cow;
-use crate::msc::measure::Measure;
-use crate::msc::general_note::{Gnote, note_attr};
-use crate::msc::general_note::note_attr::Offset;
+use crate::msc::measure::{Measure};
+use crate::msc::gnote::{Gnote, note_attr};
+use crate::msc::gnote::note_attr::Offset;
 use std::cell::RefCell;
+use crate::parser::xml_tag::XmlTag;
+use crate::msc::attributes::{TimeSignature, Clef};
 
+#[derive(Debug)]
 pub struct Part {
-    duration: note_attr::Duration,
-    measures: Vec< Measure>,
-    notes: Vec< Rc< RefCell<Gnote>>>
+    // Tags that we don't care about
+    extra_tags: Vec< Rc< XmlTag>>,
+
+    pub id: String,
+
+    pub key_sig: i8,
+    pub time_sig: TimeSignature,
+    pub clef: Clef,
+    pub divisions: u8,
+
+    pub duration: note_attr::Duration,
+    pub measures: Vec< Measure>,
 }
 
 impl Part {
-    fn new(measure_n: usize) -> Self {
-        Part {
-            duration: note_attr::Duration::from(0u8),
-            measures: Vec::with_capacity(measure_n),
-            notes: Vec::with_capacity(measure_n * 16)
-        }
-    }
+    fn from_xml(xml_tag: Rc< XmlTag>) {
 
-    // fn push_note(&mut self, note: Gnote) {
-    //     let offset: Offset = Offset::from(0u16);
-    //     if self.notes.last().is_some() {
-    //         let last_note = self.notes.last().unwrap().get_mut();
-    //         offset = last_note.offset + last_note.duration;
-    //     }
-    //     note.offset = offset;
-    //     self.notes.push(Rc::new(RefCell::new (note)));
-    // }
+    }
 }
 
 mod tests {
     use super::*;
     use std::borrow::Borrow;
-    use crate::msc::general_note::Gnote;
-    use crate::msc::general_note::note_attr::*;
+    use crate::msc::gnote::Gnote;
+    use crate::msc::gnote::note_attr::*;
 
     #[test]
     fn test_1 () {

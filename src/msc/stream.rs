@@ -1,22 +1,59 @@
 use super::part::Part;
 use crate::parser::xml_tag::XmlTag;
-use crate::msc::general_note::note_attr;
+use crate::msc::gnote::note_attr;
+use std::rc::Rc;
+use crate::msc::measure::Measure;
 
+#[derive(Debug)]
 pub struct Stream {
+    // Contains tags that we don't really care about
+    extra_tags: Vec< Rc< XmlTag>>,
+
     duration: note_attr::Duration,
     parts: Vec< Part>
 }
 
 impl Stream {
-    fn from_xml_tag(xml_tag: &XmlTag) {
-        println!("{:?}", xml_tag.name.local_name);
-        match xml_tag.name.local_name.as_str() {
-            "part" => {
-                println!("{:?}", xml_tag.attributes)
-            }
-            _ => {}
-        }
+    fn from_xml_tag(xml_tag: &Rc< XmlTag>) -> Self {
+        assert_eq!(xml_tag.name.local_name, "score-partwise");
+        let mut stream = Stream {
+            extra_tags: Vec::with_capacity(5),
+            duration: note_attr::Duration::from(0u16),
+            parts: Vec::with_capacity(4),
+        };
+        // Store extra_tags
+        XmlTag::push_extra_tags_to(&xml_tag,
+                                   &["identification", "defaults"],
+                                   &mut stream.extra_tags);
+        //Self::parse_part(&xml_tag);
+
+        stream
     }
+
+    // fn parse_part(xml_tag: &Rc< XmlTag>) -> Vec< Part> {
+    //     // Extract the <attribute> from the first measure and pass as arg to initialize
+    //     // every following measure
+    //     let attr_tag = XmlTag::search_tag(xml_tag, "attributes")
+    //         .pop_front().unwrap();
+    //
+    //     // create parts Vec with capacity as indicated by <staves>
+    //     let mut parts: Vec< Part> = Vec::with_capacity(
+    //         attrs.entry("staves".to_string())
+    //             .or_insert("1".to_string())
+    //             .parse::<usize>().unwrap()
+    //     );
+    //
+    //     for measure_tag in XmlTag::search_tag(xml_tag, "measure").into_iter() {
+    //         let measures = Measure::from_xml_tag(&measure_tag, &attr_tag);
+    //         parts.iter_mut()
+    //             .zip(measures.into_iter())
+    //             .for_each(
+    //                 |(part, measure)|
+    //                     part.measures.push(measure)
+    //             );
+    //     }
+    //     parts
+    // }
 }
 
 mod tests {
@@ -25,9 +62,9 @@ mod tests {
 
     #[test]
     fn test() {
-        let xml_file = File::open("src/msc/parser/test/example6.musicxml");
-        let xml_tree = XmlTag::from_buffer(xml_file.unwrap());
-        XmlTag::print_debug_tag(&xml_tree, 0);
+        let xml_tree = XmlTag::from_file("src/parser/test/example6.musicxml");
+        //XmlTag::print_debug_tag(&xml_tree, 0);
         let f = Stream::from_xml_tag(&xml_tree);
+        //println!("{:#?}", f);
     }
 }
