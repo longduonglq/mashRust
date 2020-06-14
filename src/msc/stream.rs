@@ -5,26 +5,26 @@ use std::rc::Rc;
 use crate::msc::measure::Measure;
 
 #[derive(Debug)]
-pub struct Stream {
+pub struct Stream<'a> {
     // Contains tags that we don't really care about
-    extra_tags: Vec< Rc< XmlTag>>,
+    _xml_tags: Vec< &'a XmlTag>,
 
     duration: note_attr::Duration,
-    parts: Vec< Part>
+    parts: Vec< Part<'a>>
 }
 
-impl Stream {
-    fn from_xml_tag(xml_tag: &Rc< XmlTag>) -> Self {
+impl<'a> Stream<'a> {
+    fn from_xml_tag(xml_tag: &'a XmlTag) -> Self {
         assert_eq!(xml_tag.name.local_name, "score-partwise");
         let mut stream = Stream {
-            extra_tags: Vec::with_capacity(5),
+            _xml_tags: Vec::with_capacity(5),
             duration: note_attr::Duration::from(0u16),
             parts: Vec::with_capacity(4),
         };
         // Store extra_tags
         XmlTag::push_extra_tags_to(&xml_tag,
                                    &["identification", "defaults"],
-                                   &mut stream.extra_tags);
+                                   &mut stream._xml_tags);
         //Self::parse_part(&xml_tag);
 
         stream

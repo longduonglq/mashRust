@@ -2,8 +2,11 @@
   <dictionary name="dp">
     <words>
       <w>acdt</w>
+      <w>dflat</w>
+      <w>dsharp</w>
       <w>gnote</w>
       <w>gnotes</w>
+      <w>ldfrac</w>
       <w>staves</w>
       <w>tuplet</w>
       <w>tuplets</w>

@@ -2,48 +2,36 @@ use std::rc::Rc;
 use crate::msc::gnote::Gnote;
 use crate::parser::xml_tag::XmlTag;
 use crate::msc::attributes::attributes;
+use std::collections::{BTreeMap, HashMap};
+use crate::msc::gnote::note_attr::Offset;
 
 
 #[derive(Debug)]
-pub struct Measure {
+pub struct Measure<'a> {
     // Contains extra tags we dont care about
-    extra_tags: Vec< Rc< XmlTag>>,
+    _xml_tags: Vec< &'a XmlTag>,
 
     pub number: u16,
-    pub notes: Vec< Rc< Gnote>>
+    pub notes: BTreeMap< Offset, Gnote<'a>>
 }
 
-impl Measure {
-    pub fn from_xml_tag(xml_tag: &Rc< XmlTag>, attrs: &attributes)
-        -> Vec< Self>
-    {
-        assert_eq!(xml_tag.name.local_name, "measure");
-        let measure = Measure {
-            extra_tags: Vec::with_capacity(10),
-            number: xml_tag.attributes
-                .iter()
-                .find(|attr| attr.name.local_name == "number")
-                .unwrap()
-                .name.local_name
-                .parse().unwrap(),
-            notes: Vec::with_capacity(16)
-        };
+impl<'a> Measure<'a> {
+    fn from_xml_tag(xml_tag: &'a XmlTag) -> Measure<'a> {
+        unimplemented!()
+    }
 
-        Vec::new()
+    fn to_xml_tag(&self) -> XmlTag {
+        unimplemented!()
     }
 }
 
 mod tests {
     use super::*;
-    use crate::parser::xml_io::XmlIO;
 
     #[test]
     fn test_01 () {
         let xml_tag = XmlTag::from_buffer(measure_xml());
-        let attr_tag = xml_tag.search_path_unique("attributes");
-        let attr_tag = attributes::from_xml_tag(&attr_tag);
-        let m = Measure::from_xml_tag(&xml_tag, &attr_tag);
-        println!("{:?}", m);
+        xml_tag.print_debug(0);
     }
 
     fn measure_xml () -> &'static [u8]{
